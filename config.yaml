@@ -1,5 +1,5 @@
-SCAN_NAME: automation-feb-7
-NO_LEDS: 50
+SCAN_NAME: automation-2
+NO_LEDS: 300
 BRIGHTNESS: 0.4
 CAMS:
   # List cameras - can either be an index or a url

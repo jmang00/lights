@@ -1,62 +1,69 @@
 # Scans the lights, and saves the image scans to a folder.
 import yaml
 import os
+import shutil
+import cv2
+import numpy as np
 from datetime import datetime
 import time
 from models.camera import CameraGroup
 from models.leds import LEDArray
 from models.scan import Scan
 
+print('Starting a scan!\n')
+
 # Load settings
-with open('settings.yaml', 'r') as f:
+with open('config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
-print('Loaded settings from setting.yaml. Edit that file and rerun to change settings.')
+print('Loaded settings from config.yaml')
 
 
 # Check if scan already exists
 scan_name = config['SCAN_NAME']
 
 if os.path.isdir(f'scans/{scan_name}'):
-    input('Scan already exists. Press Enter to overwrite, or Ctrl+C to cancel')
+    input('Scan of that name already exists. Press Enter to overwrite, or Ctrl+C to cancel')
+    input('Sure?')
 
-else:
-    os.mkdir(f'scans/{scan_name}')
-    os.mkdir(f'scans/{scan_name}/images')
+    shutil.rmtree(f'scans/{scan_name}')
+
+
+# Setup scan directorys
+os.mkdir(f'scans/{scan_name}')
+os.mkdir(f'scans/{scan_name}/images')
+os.mkdir(f'scans/{scan_name}/camera_frame_positions')
+print('Setup scan directory.')
 
 
 # Setup LEDs
-print('Initializing LEDs...')
+print('\nInitializing LEDs...')
 leds = LEDArray(config)
+leds.set_all_off()
 
-# Setup local camera(s)
-print('Initializing cameras...')
+# Setup camera(s)
+print('\nInitializing cameras...')
 cams = CameraGroup(config)
 cams.test_all()
 
+# Record start time
 start_time = datetime.now()
 
-input('Press Enter to start')
 
 try:
-    print('\n~~ Make the room dark ~~')
-    input('Press Enter to start the scan')
+    input('\nMake the room dark, then press Enter to start the scan')
 
+    
+    # Check base images
     x = None
-    while x != '':
-        # Take a base image from each camera
+    while x != '':  
+        # Base images
         for cam in cams:
             cam.save_photo(f'scans/{scan_name}/images/{cam.id}_base.jpg')
-
-        # base_img = cam.take_photo()
-        # cv2.imshow('Base Image', base_img)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        # base_img.save(f'{scan_name}/{cam.id}_base.jpg')
-
-        # Check base image
-        print('\n~~ Confirm the base images look okay ~~')
-        x = input('Press Enter to accept, or enter anything else to take again')
+        
+        print('\nSaved base image(s), check them now')
+        x = input('Type \'r\' to restart, or press Enter to accept')
+    
 
     # Turn on each light one by one, take a photo
     for i in range(len(leds)):
@@ -88,14 +95,14 @@ except Exception as e:
 cam.release()
 
 end_time = datetime.now()
-duration = end_time - start_time
+duration_s = (end_time - start_time).total_seconds()
 
 
 # Save scan details to a yaml file
 scan_details = config
 scan_details['START_TIME'] = start_time
 scan_details['END_TIME'] = end_time
-scan_details['DURATION'] = duration
+scan_details['DURATION_SECONDS'] = duration_s
 
 with open(f'scans/{scan_name}/details.yaml', 'w') as f:
     yaml.dump(scan_details, f)
@@ -105,6 +112,5 @@ with open(f'scans/{scan_name}/details.yaml', 'w') as f:
 print('Processing scanned images...')
 scan = Scan(scan_name)
 scan.generate_camera_frame_positions()
-
 
 print('Done!')
